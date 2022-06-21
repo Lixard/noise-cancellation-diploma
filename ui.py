@@ -2,6 +2,7 @@ import tkinter as tk
 from tkinter import filedialog as fd
 from tkinter import messagebox as mb
 from tkinter import ttk
+from typing import Union, Optional
 
 from dtln.run_evaluation import run_process
 
@@ -113,8 +114,11 @@ class InitPage(tk.Frame):
 class MainPage(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
+        self.sr_label: Optional[tk.Label] = None
+        self.sr_frame: Optional[ttk.Frame] = None
+        self.sr_combobox: Optional[ttk.Combobox] = None
+        self.draw_spectrum_val: Optional[tk.IntVar] = None
         self.draw_spectrum_checkbutton = None
-        self.draw_spectrum_val = None
         self.choose_out_package_button = None
         self.out_package_path_field = None
         self.out_package_frame = None
@@ -129,9 +133,8 @@ class MainPage(tk.Frame):
         self.show()
 
     def show(self):
-        self.input_package_frame = ttk.Frame(self)
-
         # setup input package path choosing elements
+        self.input_package_frame = ttk.Frame(self)
         self.choose_in_package_button = ttk.Button(
             self.input_package_frame,
             text="...",
@@ -181,8 +184,16 @@ class MainPage(tk.Frame):
         self.draw_spectrum_checkbutton = ttk.Checkbutton(
             text="Draw signal spectra (before, after)", variable=self.draw_spectrum_val
         )
+        self.draw_spectrum_checkbutton.pack(side=tk.BOTTOM)
 
-        self.draw_spectrum_checkbutton.pack()
+        self.sr_frame = ttk.Frame(self)
+        self.sr_label = tk.Label(self.sr_frame, text="Destination sample rate: ")
+        self.sr_combobox = ttk.Combobox(self.sr_frame, values=["16 kHz", "8 kHz"], state="readonly", width=7)
+        self.sr_combobox.current(0)
+
+        self.sr_label.pack(side=tk.LEFT)
+        self.sr_combobox.pack(side=tk.RIGHT)
+        self.sr_frame.pack()
 
     def choose_in_package_button_trigger(self):
         self.in_package_path = fd.askdirectory()
@@ -218,7 +229,8 @@ class MainPage(tk.Frame):
                 self.in_package_path,
                 self.out_package_path,
                 self.master.model_path,
-                bool(self.draw_spectrum_val),
+                is_draw_spectrum=bool(self.draw_spectrum_val.get()),
+                is_sr_changed=bool(self.sr_combobox.current())
             )
             mb.showinfo(
                 "Processing completed",

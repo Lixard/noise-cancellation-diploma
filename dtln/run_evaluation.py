@@ -16,7 +16,7 @@ from dtln.dtln import DTLN_model
 from spectrum_drawer import convert_audio_to_spectogram
 
 
-def process_file(model, audio_file_name, out_file_name, is_draw_spectrum):
+def process_file(model, audio_file_name, out_file_name, is_draw_spectrum: bool, is_sr_changed: bool):
     """
     Funtion to read an audio file, rocess it by the network and write the
     enhanced audio to .wav file.
@@ -48,17 +48,22 @@ def process_file(model, audio_file_name, out_file_name, is_draw_spectrum):
     predicted_speech = predicted_speech[384 : 384 + len_orig]
     # write the file to target destination
     sf.write(out_file_name, predicted_speech, fs)
+
+    if is_sr_changed:
+        f_data, fs = librosa.core.load(out_file_name, sr=8000, mono=True)
+        sf.write(out_file_name, f_data, fs)
+
     if is_draw_spectrum:
-        savepath = Path(out_file_name)
+        save_path = Path(out_file_name)
         convert_audio_to_spectogram(
-            audio_file_name, savepath.with_name(savepath.stem + "_before.png")
+            audio_file_name, save_path.with_name(save_path.stem + "_before.png")
         )
         convert_audio_to_spectogram(
-            out_file_name, savepath.with_name(savepath.stem + "_after.png")
+            out_file_name, save_path.with_name(save_path.stem + "_after.png")
         )
 
 
-def process_folder(model, folder_name, new_folder_name, is_draw_spectrum):
+def process_folder(model, folder_name, new_folder_name, is_draw_spectrum, is_sr_changed):
     """
     Function to find .wav files in the folder and subfolders of "folder_name",
     process each .wav file with an algorithm and write it back to disk in the
@@ -102,12 +107,13 @@ def process_folder(model, folder_name, new_folder_name, is_draw_spectrum):
             os.path.join(directories[idx], file_names[idx]),
             os.path.join(new_directories[idx], file_names[idx]),
             is_draw_spectrum,
+            is_sr_changed
         )
         print(file_names[idx] + " processed successfully!")
 
 
-def run_process(in_folder, out_folder, trained_model_path, is_draw_spectrum):
+def run_process(in_folder, out_folder, trained_model_path, is_draw_spectrum, is_sr_changed):
     model_obj = DTLN_model()
     model_obj.build_DTLN_model()
     model_obj.model.load_weights(trained_model_path)
-    process_folder(model_obj.model, in_folder, out_folder, is_draw_spectrum)
+    process_folder(model_obj.model, in_folder, out_folder, is_draw_spectrum, is_sr_changed)
