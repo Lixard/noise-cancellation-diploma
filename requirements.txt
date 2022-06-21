@@ -1,0 +1,6 @@
+tensorflow-macos
+soundfile
+numpy
+keras
+wavinfo
+librosa
