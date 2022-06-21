@@ -7,10 +7,26 @@ from dtln.run_evaluation import run_process
 
 TITLE_MSG = (
     "Автоматизированная подсистема анализа и обработки речи для систем мультимедийной связи "
-    "| Дипломный проект бАП-181 Борисов Максим"
+    "| Дипломный проект бАП-181 Борисова Максима"
 )
 
-HELP_MSG = ""
+HELP_MSG = """
+
+Приложение позволяет фильтровать .wav файлы от статических и динамических шумов.
+
+При запуске приложения требуется выбрать обученную модель нейронной сети в формате .h5
+
+Далее открывается функциональное окно, в котором есть несколько полей:
+1. Чекбокс, позволяющий получить спектрограммы сигнала до и после обработки
+2. Путь к папке, в которой будут представлены .wav файлы для обработки
+3. Путь к папке, в которую будут сохранены результаты
+4. Кнопка запуска обработки
+
+При успешной обработке сигналов появится поп-ап окно с соответствующей надписью и путем к обработанным файлам.
+При возникновении ошибки появится поп-ап окно с информацией о неудаче. 
+Конкретную ошибку можно будет увидеть в терминале.
+
+"""
 
 
 class UI(tk.Tk):
@@ -35,6 +51,7 @@ class UI(tk.Tk):
 class InitPage(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
+        self.help_button = None
         self.selected_model_path = None
         self.activate_model_button = None
         self.choose_model_button = None
@@ -62,11 +79,16 @@ class InitPage(tk.Frame):
 
         self.activate_model_button = ttk.Button(
             self,
-            text="Активировать модель",
+            text="Activate a model",
             command=self.activate_model_button_trigger,
             state=tk.DISABLED,
         )
         self.activate_model_button.pack()
+
+        self.help_button = ttk.Button(
+            self, text="Help", command=self.help_button_trigger
+        )
+        self.help_button.pack()
 
     def choose_model_button_trigger(self):
         self.selected_model_path = fd.askopenfilename(
@@ -83,10 +105,16 @@ class InitPage(tk.Frame):
         self.master.model_path = self.selected_model_path
         self.master.switch_frame(MainPage)
 
+    # noinspection PyMethodMayBeStatic
+    def help_button_trigger(self):
+        mb.showinfo("Помощь", TITLE_MSG + HELP_MSG)
+
 
 class MainPage(tk.Frame):
     def __init__(self, master):
         tk.Frame.__init__(self, master)
+        self.draw_spectrum_checkbutton = None
+        self.draw_spectrum_val = None
         self.choose_out_package_button = None
         self.out_package_path_field = None
         self.out_package_frame = None
@@ -113,7 +141,7 @@ class MainPage(tk.Frame):
 
         self.in_package_path_field = ttk.Entry(self.input_package_frame)
         self.in_package_path_field.insert(
-            0, "Catalog path with .wav file(-es) should be here"
+            0, "Catalog path with .wav files"
         )
         self.in_package_path_field.bind("<Key>", lambda x: "break")
         self.in_package_path_field["state"] = tk.DISABLED
@@ -142,14 +170,21 @@ class MainPage(tk.Frame):
         self.out_package_frame.pack()
 
         self.process_button = ttk.Button(
-            self, text="Обработать", command=self.process_button_trigger
+            self, text="Process", command=self.process_button_trigger
         )
         self.help_button = ttk.Button(
-            self, text="Помощь", command=self.help_button_trigger
+            self, text="Help", command=self.help_button_trigger
         )
 
         self.process_button.pack()
         self.help_button.pack()
+
+        self.draw_spectrum_val = tk.IntVar()
+        self.draw_spectrum_checkbutton = ttk.Checkbutton(
+            text="Draw a file spectrum", variable=self.draw_spectrum_val
+        )
+
+        self.draw_spectrum_checkbutton.pack()
 
     def choose_in_package_button_trigger(self):
         self.in_package_path = fd.askdirectory()
@@ -182,17 +217,22 @@ class MainPage(tk.Frame):
     def process_button_trigger(self):
         try:
             run_process(
-                self.in_package_path, self.out_package_path, self.master.model_path
+                self.in_package_path,
+                self.out_package_path,
+                self.master.model_path,
+                bool(self.draw_spectrum_val),
             )
             mb.showinfo(
                 "Processing completed",
                 f"Processing successfully completed! Results saved in the specified package: {self.out_package_path}",
             )
-        except Exception:
+        except Exception as ex:
             mb.showerror(
                 "Processing failed",
                 f"Failed to process the specified package: {self.in_package_path}",
             )
+            raise ex
 
+    # noinspection PyMethodMayBeStatic
     def help_button_trigger(self):
-        pass
+        mb.showinfo("Помощь", TITLE_MSG + HELP_MSG)
