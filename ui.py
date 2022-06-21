@@ -140,9 +140,7 @@ class MainPage(tk.Frame):
         )
 
         self.in_package_path_field = ttk.Entry(self.input_package_frame)
-        self.in_package_path_field.insert(
-            0, "Catalog path with .wav files"
-        )
+        self.in_package_path_field.insert(0, "Catalog path with .wav files")
         self.in_package_path_field.bind("<Key>", lambda x: "break")
         self.in_package_path_field["state"] = tk.DISABLED
 
