@@ -212,7 +212,7 @@ class MainPage(tk.Frame):
     def choose_out_package_button_trigger(self):
         self.out_package_path = fd.askdirectory()
 
-        if not self.out_package_frame:
+        if not self.out_package_path:
             return
 
         self.out_package_path_field["state"] = tk.NORMAL
