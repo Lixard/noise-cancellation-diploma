@@ -12,7 +12,7 @@ TITLE_MSG = (
 
 HELP_MSG = """
 
-Приложение позволяет фильтровать .wav файлы от статических и динамических шумов.
+Приложение позволяет фильтровать .wav файлы от стационарных и нестационарных шумов.
 
 При запуске приложения требуется выбрать обученную модель нейронной сети в формате .h5
 
@@ -140,7 +140,7 @@ class MainPage(tk.Frame):
         )
 
         self.in_package_path_field = ttk.Entry(self.input_package_frame)
-        self.in_package_path_field.insert(0, "Catalog path with .wav files")
+        self.in_package_path_field.insert(0, "Path to catalog with .wav files")
         self.in_package_path_field.bind("<Key>", lambda x: "break")
         self.in_package_path_field["state"] = tk.DISABLED
 
@@ -152,7 +152,7 @@ class MainPage(tk.Frame):
         self.out_package_frame = ttk.Frame(self)
 
         self.out_package_path_field = ttk.Entry(self.out_package_frame)
-        self.out_package_path_field.insert(0, "Destination catalog path")
+        self.out_package_path_field.insert(0, "Path to destination catalog")
         self.out_package_path_field.bind("<Key>", lambda x: "break")
         self.out_package_path_field["state"] = tk.DISABLED
 
@@ -168,7 +168,7 @@ class MainPage(tk.Frame):
         self.out_package_frame.pack()
 
         self.process_button = ttk.Button(
-            self, text="Process", command=self.process_button_trigger
+            self, text="Process", command=self.process_button_trigger, state=tk.DISABLED
         )
         self.help_button = ttk.Button(
             self, text="Help", command=self.help_button_trigger
@@ -179,7 +179,7 @@ class MainPage(tk.Frame):
 
         self.draw_spectrum_val = tk.IntVar()
         self.draw_spectrum_checkbutton = ttk.Checkbutton(
-            text="Draw a file spectrum", variable=self.draw_spectrum_val
+            text="Draw signal spectra (before, after)", variable=self.draw_spectrum_val
         )
 
         self.draw_spectrum_checkbutton.pack()
