@@ -2,7 +2,7 @@ import tkinter as tk
 from tkinter import filedialog as fd
 from tkinter import messagebox as mb
 from tkinter import ttk
-from typing import Union, Optional
+from typing import Optional
 
 from dtln.run_evaluation import run_process
 
@@ -188,7 +188,9 @@ class MainPage(tk.Frame):
 
         self.sr_frame = ttk.Frame(self)
         self.sr_label = tk.Label(self.sr_frame, text="Destination sample rate: ")
-        self.sr_combobox = ttk.Combobox(self.sr_frame, values=["16 kHz", "8 kHz"], state="readonly", width=7)
+        self.sr_combobox = ttk.Combobox(
+            self.sr_frame, values=["16 kHz", "8 kHz"], state="readonly", width=7
+        )
         self.sr_combobox.current(0)
 
         self.sr_label.pack(side=tk.LEFT)
@@ -230,7 +232,7 @@ class MainPage(tk.Frame):
                 self.out_package_path,
                 self.master.model_path,
                 is_draw_spectrum=bool(self.draw_spectrum_val.get()),
-                is_sr_changed=bool(self.sr_combobox.current())
+                is_sr_changed=bool(self.sr_combobox.current()),
             )
             mb.showinfo(
                 "Processing completed",

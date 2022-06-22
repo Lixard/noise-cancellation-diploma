@@ -16,7 +16,9 @@ from dtln.dtln import DTLN_model
 from spectrum_drawer import convert_audio_to_spectogram
 
 
-def process_file(model, audio_file_name, out_file_name, is_draw_spectrum: bool, is_sr_changed: bool):
+def process_file(
+    model, audio_file_name, out_file_name, is_draw_spectrum: bool, is_sr_changed: bool
+):
     """
     Funtion to read an audio file, rocess it by the network and write the
     enhanced audio to .wav file.
@@ -63,7 +65,9 @@ def process_file(model, audio_file_name, out_file_name, is_draw_spectrum: bool, 
         )
 
 
-def process_folder(model, folder_name, new_folder_name, is_draw_spectrum, is_sr_changed):
+def process_folder(
+    model, folder_name, new_folder_name, is_draw_spectrum, is_sr_changed
+):
     """
     Function to find .wav files in the folder and subfolders of "folder_name",
     process each .wav file with an algorithm and write it back to disk in the
@@ -107,13 +111,17 @@ def process_folder(model, folder_name, new_folder_name, is_draw_spectrum, is_sr_
             os.path.join(directories[idx], file_names[idx]),
             os.path.join(new_directories[idx], file_names[idx]),
             is_draw_spectrum,
-            is_sr_changed
+            is_sr_changed,
         )
         print(file_names[idx] + " processed successfully!")
 
 
-def run_process(in_folder, out_folder, trained_model_path, is_draw_spectrum, is_sr_changed):
+def run_process(
+    in_folder, out_folder, trained_model_path, is_draw_spectrum, is_sr_changed
+):
     model_obj = DTLN_model()
     model_obj.build_DTLN_model()
     model_obj.model.load_weights(trained_model_path)
-    process_folder(model_obj.model, in_folder, out_folder, is_draw_spectrum, is_sr_changed)
+    process_folder(
+        model_obj.model, in_folder, out_folder, is_draw_spectrum, is_sr_changed
+    )
