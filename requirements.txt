@@ -4,3 +4,4 @@ numpy
 keras
 wavinfo
 librosa
+matplotlib
