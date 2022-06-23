@@ -4,8 +4,6 @@ This File contains everything to train the DTLN model.
 For running the training see "run_training.py".
 To run evaluation with the provided pretrained model see "run_evaluation.py".
 
-
-This code is licensed under the terms of the MIT-license.
 """
 
 import fnmatch
@@ -463,10 +461,6 @@ class DTLN_model:
         The conversion creates two models, one for each separation core.
         Tf lite does not support complex numbers yet. Some processing must be
         done outside the model.
-        For further information and how real time processing can be
-        implemented see "real_time_processing_tf_lite.py".
-
-        The conversion only works with TF 2.3.
 
         """
         # check for type
@@ -632,8 +626,7 @@ class DTLN_model:
 class InstantLayerNormalization(Layer):
     """
     Class implementing instant layer normalization. It can also be called
-    channel-wise layer normalization and was proposed by
-    Luo & Mesgarani (https://arxiv.org/abs/1809.07454v2)
+    channel-wise layer normalization.
     """
 
     def __init__(self, **kwargs):
