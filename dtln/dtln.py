@@ -289,43 +289,6 @@ class DTLN_model:
         # returning the mask
         return mask
 
-    def seperation_kernel_with_states(self, num_layer, mask_size, x, in_states):
-        """
-        Method to create a separation kernel, which returns the LSTM states.
-        !! Important !!: Do not use this layer with a Lambda layer. If used with
-        a Lambda layer the gradients are updated correctly.
-
-        Inputs:
-            num_layer       Number of LSTM layers
-            mask_size       Output size of the mask and size of the Dense layer
-        """
-
-        states_h = []
-        states_c = []
-        # creating num_layer number of LSTM layers
-        for idx in range(num_layer):
-            in_state = [in_states[:, idx, :, 0], in_states[:, idx, :, 1]]
-            x, h_state, c_state = LSTM(
-                self.numUnits, return_sequences=True, unroll=True, return_state=True
-            )(x, initial_state=in_state)
-            # using dropout between the LSTM layer for regularization
-            if idx < (num_layer - 1):
-                x = Dropout(self.dropout)(x)
-            states_h.append(h_state)
-            states_c.append(c_state)
-        # creating the mask with a Dense and an Activation layer
-        mask = Dense(mask_size)(x)
-        mask = Activation(self.activation)(mask)
-        out_states_h = tf.reshape(
-            tf.stack(states_h, axis=0), [1, num_layer, self.numUnits]
-        )
-        out_states_c = tf.reshape(
-            tf.stack(states_c, axis=0), [1, num_layer, self.numUnits]
-        )
-        out_states = tf.stack([out_states_h, out_states_c], axis=-1)
-        # returning the mask and states
-        return mask, out_states
-
     def build_DTLN_model(self, norm_stft=False):
         """
         Method to build and compile the DTLN model. The model takes time domain
@@ -341,15 +304,9 @@ class DTLN_model:
         time_dat = Input(batch_shape=(None, None))
         # calculate STFT
         mag, angle = Lambda(self.stftLayer)(time_dat)
-        # normalizing log magnitude stfts to get more robust against level variations
-        if norm_stft:
-            mag_norm = InstantLayerNormalization()(tf.math.log(mag + 1e-7))
-        else:
-            # behaviour like in the paper
-            mag_norm = mag
         # predicting mask with separation kernel
         mask_1 = self.seperation_kernel(
-            self.numLayer, (self.blockLen // 2 + 1), mag_norm
+            self.numLayer, (self.blockLen // 2 + 1), mag
         )
         # multiply mask with magnitude
         estimated_mag = Multiply()([mag, mask_1])
@@ -379,52 +336,6 @@ class DTLN_model:
         # show the model summary
         print(self.model.summary())
 
-    def build_DTLN_model_stateful(self, norm_stft=False):
-        """
-        Method to build stateful DTLN model for real time processing. The model
-        takes one time domain frame of size (1, blockLen) and one enhanced frame.
-
-        """
-
-        # input layer for time signal
-        time_dat = Input(batch_shape=(1, self.blockLen))
-        # calculate STFT
-        mag, angle = Lambda(self.fftLayer)(time_dat)
-        # normalizing log magnitude stfts to get more robust against level variations
-        if norm_stft:
-            mag_norm = InstantLayerNormalization()(tf.math.log(mag + 1e-7))
-        else:
-            # behaviour like in the paper
-            mag_norm = mag
-        # predicting mask with separation kernel
-        mask_1 = self.seperation_kernel(
-            self.numLayer, (self.blockLen // 2 + 1), mag_norm, stateful=True
-        )
-        # multiply mask with magnitude
-        estimated_mag = Multiply()([mag, mask_1])
-        # transform frames back to time domain
-        estimated_frames_1 = Lambda(self.ifftLayer)([estimated_mag, angle])
-        # encode time domain frames to feature domain
-        encoded_frames = Conv1D(self.encoder_size, 1, strides=1, use_bias=False)(
-            estimated_frames_1
-        )
-        # normalize the input to the separation kernel
-        encoded_frames_norm = InstantLayerNormalization()(encoded_frames)
-        # predict mask based on the normalized feature frames
-        mask_2 = self.seperation_kernel(
-            self.numLayer, self.encoder_size, encoded_frames_norm, stateful=True
-        )
-        # multiply encoded frames with the mask
-        estimated = Multiply()([encoded_frames, mask_2])
-        # decode the frames back to time domain
-        decoded_frame = Conv1D(self.blockLen, 1, padding="causal", use_bias=False)(
-            estimated
-        )
-        # create the model
-        self.model = Model(inputs=time_dat, outputs=decoded_frame)
-        # show the model summary
-        print(self.model.summary())
-
     def compile_model(self):
         """
         Method to compile the model for training
@@ -435,109 +346,6 @@ class DTLN_model:
         optimizerAdam = keras.optimizers.Adam(lr=self.lr, clipnorm=3.0)
         # compile model with loss function
         self.model.compile(loss=self.lossWrapper(), optimizer=optimizerAdam)
-
-    def create_saved_model(self, weights_file, target_name):
-        """
-        Method to create a saved model folder from a weights file
-
-        """
-        # check for type
-        if weights_file.find("_norm_") != -1:
-            norm_stft = True
-        else:
-            norm_stft = False
-        # build model
-        self.build_DTLN_model_stateful(norm_stft=norm_stft)
-        # load weights
-        self.model.load_weights(weights_file)
-        # save model
-        tf.saved_model.save(self.model, target_name)
-
-    def create_tf_lite_model(
-        self, weights_file, target_name, use_dynamic_range_quant=False
-    ):
-        """
-        Method to create a tf lite model folder from a weights file.
-        The conversion creates two models, one for each separation core.
-        Tf lite does not support complex numbers yet. Some processing must be
-        done outside the model.
-
-        """
-        # check for type
-        if weights_file.find("_norm_") != -1:
-            norm_stft = True
-            num_elements_first_core = 2 + self.numLayer * 3 + 2
-        else:
-            norm_stft = False
-            num_elements_first_core = self.numLayer * 3 + 2
-        # build model
-        self.build_DTLN_model_stateful(norm_stft=norm_stft)
-        # load weights
-        self.model.load_weights(weights_file)
-
-        #### Model 1 ##########################
-        mag = Input(batch_shape=(1, 1, (self.blockLen // 2 + 1)))
-        states_in_1 = Input(batch_shape=(1, self.numLayer, self.numUnits, 2))
-        # normalizing log magnitude stfts to get more robust against level variations
-        if norm_stft:
-            mag_norm = InstantLayerNormalization()(tf.math.log(mag + 1e-7))
-        else:
-            # behaviour like in the paper
-            mag_norm = mag
-        # predicting mask with separation kernel
-        mask_1, states_out_1 = self.seperation_kernel_with_states(
-            self.numLayer, (self.blockLen // 2 + 1), mag_norm, states_in_1
-        )
-
-        model_1 = Model(inputs=[mag, states_in_1], outputs=[mask_1, states_out_1])
-
-        #### Model 2 ###########################
-
-        estimated_frame_1 = Input(batch_shape=(1, 1, (self.blockLen)))
-        states_in_2 = Input(batch_shape=(1, self.numLayer, self.numUnits, 2))
-
-        # encode time domain frames to feature domain
-        encoded_frames = Conv1D(self.encoder_size, 1, strides=1, use_bias=False)(
-            estimated_frame_1
-        )
-        # normalize the input to the separation kernel
-        encoded_frames_norm = InstantLayerNormalization()(encoded_frames)
-        # predict mask based on the normalized feature frames
-        mask_2, states_out_2 = self.seperation_kernel_with_states(
-            self.numLayer, self.encoder_size, encoded_frames_norm, states_in_2
-        )
-        # multiply encoded frames with the mask
-        estimated = Multiply()([encoded_frames, mask_2])
-        # decode the frames back to time domain
-        decoded_frame = Conv1D(self.blockLen, 1, padding="causal", use_bias=False)(
-            estimated
-        )
-
-        model_2 = Model(
-            inputs=[estimated_frame_1, states_in_2],
-            outputs=[decoded_frame, states_out_2],
-        )
-
-        # set weights to submodels
-        weights = self.model.get_weights()
-        model_1.set_weights(weights[:num_elements_first_core])
-        model_2.set_weights(weights[num_elements_first_core:])
-        # convert first model
-        converter = tf.lite.TFLiteConverter.from_keras_model(model_1)
-        if use_dynamic_range_quant:
-            converter.optimizations = [tf.lite.Optimize.DEFAULT]
-        tflite_model = converter.convert()
-        with tf.io.gfile.GFile(target_name + "_1.tflite", "wb") as f:
-            f.write(tflite_model)
-        # convert second model
-        converter = tf.lite.TFLiteConverter.from_keras_model(model_2)
-        if use_dynamic_range_quant:
-            converter.optimizations = [tf.lite.Optimize.DEFAULT]
-        tflite_model = converter.convert()
-        with tf.io.gfile.GFile(target_name + "_2.tflite", "wb") as f:
-            f.write(tflite_model)
-
-        print("TF lite conversion complete!")
 
     def train_model(
         self,
